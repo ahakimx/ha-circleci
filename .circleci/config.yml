@@ -1,21 +1,7 @@
 version: 2.1
 
 jobs:
-  create_infrastructure:
-    docker:
-      - image: amazon/aws-cli
-    steps:
-      - checkout
-      - run:
-         name: ensure backend infrastructure exist
-         command: |
-           aws cloudformation deploy \
-            --template-file template.yml \
-            --stack-name my-infra;
-            sleep 120s;
-            aws ec2 describe-instances --query 'Reservations[*].Instances[*].PublicIpAddress' --output text >> $URL
-            aws ec2 describe-instances --query 'Reservations[*].Instances[*].PublicIpAddress' --output text >> inventory.txt
-
+  
   configure_infrastructure:
     docker:
       - image: python:3.7-alpine3.11
@@ -40,7 +26,7 @@ jobs:
       - run:
           name: smoke test
           command: |
-            URL=
+            URL="18.236.221.236:3000"
             if curl -s --head ${URL} 
             then
              return 0
@@ -51,10 +37,7 @@ jobs:
 workflows:
   my_workflow:
     jobs:
-      - create_infrastructure
       - configure_infrastructure:
-         requires:
-           - create_infrastructure
       - smoke_test:
          requires:
            - configure_infrastructure
