@@ -17,6 +17,8 @@ jobs:
         - run: aws s3 sync . s3://"${CIRCLE_WORKFLOW_ID}" --delete
 
     get_last_deployment_id:
+      docker:
+        - image: amazon/aws-cli
       steps:
         - run:
             name: Get Last Deployment ID
@@ -36,25 +38,27 @@ jobs:
       steps:
         - checkout
         - run:
-          name: Promote to Production
-          command: |
-            aws cloudformation deploy \
-            --template-file cloudfront.yml \
-            --stack-name ha-prod \
-            --parameter-overrides PipelineID="${CIRCLE_WORKFLOW_ID}"
+            name: Promote to Production
+            command: |
+              aws cloudformation deploy \
+              --template-file cloudfront.yml \
+              --stack-name ha-prod \
+              --parameter-overrides PipelineID="${CIRCLE_WORKFLOW_ID}"
 
     clean_up_old_front_end:
+      docker:
+        - image: amazon/aws-cli
       steps:
         - checkout
         - attach_workspace:
             at: ~/
         - run:
-          name: Cleanup Old Frontend
-          command: |
-            OldPipelineID=$(cat ~/pipeline.txt)
-            echo $OldPipelineID
-            aws s3 rm "s3://${OldPipelineID}" --recursive
-            aws cloudformation delete-stack --stack-name "${OldPipelineID}"
+            name: Cleanup Old Frontend
+            command: |
+              OldPipelineID=$(cat ~/pipeline.txt)
+              echo $OldPipelineID
+              aws s3 rm "s3://${OldPipelineID}" --recursive
+              aws cloudformation delete-stack --stack-name "${OldPipelineID}"
 
 workflows:
   my_workflow:
