@@ -20,6 +20,8 @@ jobs:
       docker:
         - image: amazon/aws-cli
       steps:
+        - run: yum install -y tar
+        - run: yum install -y gzip
         - run:
             name: Get Last Deployment ID
             command: |
