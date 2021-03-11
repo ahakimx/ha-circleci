@@ -31,6 +31,8 @@ jobs:
               - pipeline.txt
 
     promote_to_production:
+      docker:
+        - image: amazon/aws-cli
       steps:
         - checkout
         - run:
