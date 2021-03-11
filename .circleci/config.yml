@@ -14,7 +14,7 @@ jobs:
               --template-file bucket.yml \
               --stack-name "ha-${CIRCLE_WORKFLOW_ID:0:7}" \
               --parameter-overrides NAME="${CIRCLE_WORKFLOW_ID:0:7}"
-        - run: aws s3 sync . s3://"${CIRCLE_WORKFLOW_ID}" --delete
+        - run: aws s3 sync . s3://"${CIRCLE_WORKFLOW_ID:0:7}" --delete
 
     get_last_deployment_id:
       docker:
@@ -43,7 +43,7 @@ jobs:
               aws cloudformation deploy \
               --template-file cloudfront.yml \
               --stack-name ha-prod \
-              --parameter-overrides PipelineID="${CIRCLE_WORKFLOW_ID}"
+              --parameter-overrides PipelineID="${CIRCLE_WORKFLOW_ID:0:7}"
 
     clean_up_old_front_end:
       docker:
