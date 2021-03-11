@@ -1,29 +1,79 @@
 version: 2.1
 
-commands:
-    destroy_environment:
-      steps:
-        - run:
-            name: Destroy Environment
-            command: |
-              aws cloudformation delete-stack --stack-name prod-${CIRCLE_WORKFLOW_ID}
-            when: on_fail
 jobs:
-    create_infrastructure:
+
+    create_and_deploy_front_end:
       docker:
         - image: amazon/aws-cli
       steps:
         - checkout
         - run:
-           name: Ensure backend infrastructure exist
-           command: |
-             aws cloudformation deploy \
-              --template-file template.yml \
-              --stack-name prod-${CIRCLE_WORKFLOW_ID}
-        - run: return 1
-        - destroy_environment
+            name: Create and Deploy frontend
+            command: |
+              aws cloudformation deploy \
+              --template-file bucket.yml \
+              --stack-name "ha-${CIRCLE_WORKFLOW_ID:0:7}" \
+              --parameter-overrides NAME="${CIRCLE_WORKFLOW_ID:0:7}"
+        - run: aws s3 sync . s3://"${CIRCLE_WORKFLOW_ID:0:7}" --delete
+
+    get_last_deployment_id:
+      docker:
+        - image: amazon/aws-cli
+      steps:
+        - run: yum install -y tar
+        - run: yum install -y gzip
+        - run:
+            name: Get Last Deployment ID
+            command: |
+              aws cloudformation list-exports \
+              --query "Exports[?Name==\`PipelineID\`].Value" \
+              --no-paginate --output text > ~/pipeline.txt
+        - run: echo ~/pipeline.txt
+        - persist_to_workspace:
+            root: ~/
+            paths:
+              - pipeline.txt
+
+    promote_to_production:
+      docker:
+        - image: amazon/aws-cli
+      steps:
+        - checkout
+        - run:
+            name: Promote to Production
+            command: |
+              aws cloudformation deploy \
+              --template-file cloudfront.yml \
+              --stack-name ha-prod \
+              --parameter-overrides PipelineID="${CIRCLE_WORKFLOW_ID:0:7}"
+
+    clean_up_old_front_end:
+      docker:
+        - image: amazon/aws-cli
+      steps:
+        - checkout
+        - run: yum install -y tar
+        - run: yum install -y gzip
+        - attach_workspace:
+            at: ~/
+        - run:
+            name: Cleanup Old Frontend
+            command: |
+              OldPipelineID=$(cat ~/pipeline.txt)
+              echo $OldPipelineID
+              aws s3 rm "s3://${OldPipelineID}" --recursive
+              aws cloudformation delete-stack --stack-name "${OldPipelineID}"
 
 workflows:
   my_workflow:
     jobs:
-      - create_infrastructure
+      - create_and_deploy_front_end
+      - get_last_deployment_id:
+          requires:
+            - create_and_deploy_front_end
+      - promote_to_production:
+          requires:
+            - get_last_deployment_id
+      - clean_up_old_front_end:
+          requires:
+            - promote_to_production
