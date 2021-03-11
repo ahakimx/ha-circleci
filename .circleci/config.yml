@@ -21,7 +21,7 @@ jobs:
         - run:
             name: Get Last Deployment ID
             command: |
-              aws cloudformation list-exports
+              aws cloudformation list-exports \
               --query "Exports[?Name==\`PipelineID\`].Value" \
               --no-paginate --output text > ~/pipeline.txt
         - run: echo ~/pipeline.txt
